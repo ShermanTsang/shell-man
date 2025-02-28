@@ -1,2 +1,16 @@
+# Clacky Project Files
 node_modules/*
 .idea/*
+
+# TypeScript / JavaScript
+dist/
+*.js.map
+*.d.ts
+
+# Bun Package Manager
+bun.lockb
+
+# Clacky Config
+.1024*
+!.1024
+.breakpoints
