@@ -215,12 +215,15 @@ export async function cli() {
     // Setup basic commander
     program
       .name('shellman')
-      .description('A tool to display shell and environment information');
+      .description('A tool to display shell and environment information')
+      .allowExcessArguments(true);  // Allow excess arguments without error
     
     // Define command line options
     program
       .option('-d, --debug', 'Display debug information')
-      .option('-t, --text <text>', 'Text to display with environment info');
+      .option('-t, --text <text>', 'Text to display with environment info')
+      // Add a dummy variadic argument to capture all other arguments
+      .argument('[text...]', 'Text to display with environment info');
     
     // Parse arguments
     program.parse(process.argv);
@@ -229,6 +232,18 @@ export async function cli() {
     const options = program.opts();
     console.log('Parsed options:', options);
     
+    // Handle positional arguments
+    let positionalArgs = program.args;
+    console.log('Positional args:', positionalArgs);
+    
+    // Get text from either -t flag or positional args
+    let userText: string | undefined = options.text;
+    
+    // If no text option but we have positional args, use those as text
+    if (!userText && positionalArgs.length > 0) {
+      userText = positionalArgs.join(' ');
+    }
+    
     // Create a spinner
     const spinner = ora('Starting shellman...').start();
     
@@ -236,10 +251,10 @@ export async function cli() {
       // Gather information with spinner
       const environmentInfo = await gatherEnvironmentInfo(spinner);
       
-      if (options.text) {
-        // Case: Text provided as argument
+      if (userText) {
+        // Case: Text provided (either as flag or positional arg)
         spinner.succeed('Environment information gathered');
-        displayEnvironmentInfo(environmentInfo, options.text, options.debug);
+        displayEnvironmentInfo(environmentInfo, userText, options.debug);
       } else {
         // Case: No text provided, prompt for input
         spinner.succeed('Environment information gathered');
