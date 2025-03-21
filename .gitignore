@@ -14,3 +14,6 @@ bun.lockb
 .1024*
 !.1024
 .breakpoints
+
+# Local files
+prompts.md
