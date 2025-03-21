@@ -5,6 +5,8 @@ import fs from "fs";
 import { Command } from "commander";
 import ora from "ora";
 import prompts from "prompts";
+import { initConfig } from "./config";
+import type { ShellManConfig } from "./config";
 
 export interface EnvironmentInfo {
   osType: string;
@@ -171,8 +173,11 @@ async function promptForText(): Promise<string> {
   const response = await prompts({
     type: "text",
     name: "input",
-    message: "Please enter your text:",
-    validate: (value) => (value.length > 0 ? true : "Please enter some text"),
+    message: "Please enter your script:",
+    validate: (value) =>
+      value.length > 0
+        ? true
+        : "Please enter your script use natural human language",
   });
 
   return response.input;
@@ -212,6 +217,7 @@ export async function cli() {
     // Check if help or version flags are provided before Commander initialization
     const args = process.argv.slice(2);
     const isDebug = args.includes("--debug") || args.includes("-d");
+    const nonInteractive = isDebug || args.includes("--non-interactive");
 
     if (args.includes("--help") || args.includes("-h")) {
       displayHelp();
@@ -235,6 +241,7 @@ export async function cli() {
     program
       .option("-d, --debug", "Display debug information")
       .option("-t, --text <text>", "Text to display with environment info")
+      .option("--non-interactive", "Run in non-interactive mode")
       // Add a dummy variadic argument to capture all other arguments
       .argument("[text...]", "Text to display with environment info");
 
@@ -261,13 +268,40 @@ export async function cli() {
     const spinner = ora("Starting shellman...").start();
 
     try {
+      // Configuration initialization
+      if (nonInteractive) {
+        spinner.text = "Loading configuration in non-interactive mode...";
+        const config: ShellManConfig = await initConfig(true);
+        if (isDebug) console.log("Configuration loaded:", config);
+      } else {
+        // In interactive mode, completely stop the spinner and show a clear message
+        spinner.stop();
+        console.log("Checking configuration...");
+
+        // Initialize config in interactive mode
+        const config: ShellManConfig = await initConfig(false);
+        if (isDebug) console.log("Configuration loaded:", config);
+
+        // Restart spinner after configuration is complete
+        spinner.start("Continuing with shellman...");
+      }
+
       // Gather information with spinner
+      spinner.text = "Gathering environment information...";
       const environmentInfo = await gatherEnvironmentInfo(spinner);
 
       if (userText) {
         // Case: Text provided (either as flag or positional arg)
         spinner.succeed("Environment information gathered");
         displayEnvironmentInfo(environmentInfo, userText, options.debug);
+      } else if (nonInteractive) {
+        // In non-interactive mode without text, just display environment info
+        spinner.succeed("Environment information gathered");
+        displayEnvironmentInfo(
+          environmentInfo,
+          "Running in non-interactive mode",
+          options.debug
+        );
       } else {
         // Case: No text provided, prompt for input
         spinner.succeed("Environment information gathered");
