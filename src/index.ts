@@ -1,7 +1,13 @@
 import * as os from "os";
 import * as path from "path";
-import * as readline from "readline";
-import * as fs from "fs";
+import { fileURLToPath } from "url";
+import fs from "fs";
+import { Command } from "commander";
+import ora from "ora";
+import prompts from "prompts";
+
+// Add debug logging
+console.log('Shell-man starting...');
 
 export interface EnvironmentInfo {
   osType: string;
@@ -9,7 +15,6 @@ export interface EnvironmentInfo {
   architecture: string;
   shellPath: string;
   shellName: string;
-  debug?: boolean;
 }
 
 interface ShellInfo {
@@ -20,10 +25,30 @@ interface ShellInfo {
 // Get package version from package.json
 function getPackageVersion(): string {
   try {
-    const packageJsonPath = path.resolve(path.dirname(path.dirname(new URL(import.meta.url).pathname)), 'package.json');
-    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-    return packageJson.version || '1.0.0';
+    // Handle path differently based on CommonJS or ESM
+    let packageJsonPath;
+    
+    if (typeof __dirname !== 'undefined') {
+      // CommonJS
+      packageJsonPath = path.resolve(__dirname, '..', 'package.json');
+    } else {
+      // ESM
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = path.dirname(__filename);
+      packageJsonPath = path.resolve(__dirname, '..', 'package.json');
+    }
+    
+    console.log('Reading package.json from:', packageJsonPath);
+    
+    if (fs.existsSync(packageJsonPath)) {
+      const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+      return packageJson.version || '1.0.0';
+    } else {
+      console.error('package.json not found at path:', packageJsonPath);
+      return '1.0.0';
+    }
   } catch (error) {
+    console.error('Error reading package.json:', error);
     return '1.0.0'; // Default version if package.json cannot be read
   }
 }
@@ -57,7 +82,7 @@ function getShellInfo(): ShellInfo {
   }
 }
 
-export function getEnvironmentInfo(debug = false): EnvironmentInfo {
+export function getEnvironmentInfo(): EnvironmentInfo {
   const shellInfo = getShellInfo();
 
   return {
@@ -66,20 +91,28 @@ export function getEnvironmentInfo(debug = false): EnvironmentInfo {
     architecture: os.arch(),
     shellPath: shellInfo.path,
     shellName: shellInfo.name,
-    debug,
   };
 }
 
-function displayEnvironmentInfo(text?: string, debug = false) {
-  const environmentInfo = getEnvironmentInfo(debug);
+async function gatherEnvironmentInfo(spinner?: ReturnType<typeof ora>): Promise<EnvironmentInfo> {
+  if (spinner) {
+    spinner.text = 'Gathering environment information...';
+  }
   
-  console.log("Environment Information:");
+  // Simulate a small delay to show the spinner (for better UX)
+  await new Promise(resolve => setTimeout(resolve, 800));
+  
+  return getEnvironmentInfo();
+}
+
+function displayEnvironmentInfo(info: EnvironmentInfo, text?: string, debug = false) {
+  console.log("\nEnvironment Information:");
   console.log("=======================");
-  console.log(`OS Type: ${environmentInfo.osType}`);
-  console.log(`OS Version: ${environmentInfo.osVersion}`);
-  console.log(`Architecture: ${environmentInfo.architecture}`);
-  console.log(`Shell Path: ${environmentInfo.shellPath}`);
-  console.log(`Shell Name: ${environmentInfo.shellName}`);
+  console.log(`OS Type: ${info.osType}`);
+  console.log(`OS Version: ${info.osVersion}`);
+  console.log(`Architecture: ${info.architecture}`);
+  console.log(`Shell Path: ${info.shellPath}`);
+  console.log(`Shell Name: ${info.shellName}`);
   
   if (debug) {
     console.log("\nDebug Information:");
@@ -90,11 +123,6 @@ function displayEnvironmentInfo(text?: string, debug = false) {
     console.log(`  Node Version: ${process.version}`);
     console.log(`  Current Directory: ${process.cwd()}`);
     console.log(`  Process ID: ${process.pid}`);
-    
-    console.log("\n  Process Arguments:");
-    process.argv.forEach((arg, index) => {
-      console.log(`    ${index}: ${arg}`);
-    });
     
     // System information
     console.log("\nSystem Information:");
@@ -131,102 +159,110 @@ function displayEnvironmentInfo(text?: string, debug = false) {
   }
 }
 
-function displayVersion() {
-  const version = getPackageVersion();
-  console.log(`shellman v${version}`);
+async function promptForText(): Promise<string> {
+  const response = await prompts({
+    type: 'text',
+    name: 'input',
+    message: 'Please enter your text:',
+    validate: value => value.length > 0 ? true : 'Please enter some text'
+  });
+  
+  return response.input;
 }
 
+// Define a simple help message directly
 function displayHelp() {
   console.log("Usage: shellman [options] [text]");
   console.log("");
   console.log("Options:");
-  console.log("  --version, -v     Display the version of the program");
-  console.log("  --help, -h        Display this help message");
-  console.log("  --debug, -d       Display debug information");
+  console.log("  -v, --version     Display the version of shellman");
+  console.log("  -h, --help        Display this help message");
+  console.log("  -d, --debug       Display debug information");
+  console.log("  -t, --text <text> Text to display with environment info");
   console.log("");
   console.log("Examples:");
   console.log("  shellman                     Interactive mode, prompts for text input");
-  console.log("  shellman Hello World         Displays environment info with 'Hello World' as input");
+  console.log("  shellman -t \"Hello World\"    Displays environment info with 'Hello World' as input");
   console.log("  shellman -v                  Displays the program version");
-  console.log("  shellman -d Hello World      Displays environment and debug info with 'Hello World' as input");
+  console.log("  shellman -d                  Displays environment and debug info");
 }
 
-// Parse command line arguments
-function parseArgs(args: string[]): { 
-  showVersion: boolean; 
-  showHelp: boolean; 
-  debug: boolean;
-  text: string | null; 
-} {
-  const result = {
-    showVersion: false,
-    showHelp: false,
-    debug: false,
-    text: null as string | null
-  };
-  
-  const textParts: string[] = [];
-  
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-    
-    if (arg === '--version' || arg === '-v') {
-      result.showVersion = true;
-    } else if (arg === '--help' || arg === '-h') {
-      result.showHelp = true;
-    } else if (arg === '--debug' || arg === '-d') {
-      result.debug = true;
-    } else {
-      // Not a flag, treat as text input
-      textParts.push(arg);
-    }
-  }
-  
-  if (textParts.length > 0) {
-    result.text = textParts.join(' ');
-  }
-  
-  return result;
+// Display the version number
+function displayVersion() {
+  console.log(`shellman v${getPackageVersion()}`);
 }
 
-// Main CLI function
-export async function main() {
-  // Parse command line arguments
-  const args = parseArgs(process.argv.slice(2));
+// Main function, exported as cli for bin script use
+export async function cli() {
+  console.log('CLI function called');
+  console.log('Arguments:', process.argv);
   
-  // Handle flags with priority: help -> version -> normal operation
-  if (args.showHelp) {
-    displayHelp();
-    return;
-  }
-  
-  if (args.showVersion) {
-    displayVersion();
-    return;
-  }
-  
-  if (args.text) {
-    // Usage 1: shellman [text] (with optional flags)
-    displayEnvironmentInfo(args.text, args.debug);
-  } else {
-    // Usage 2: shellman (without text parameter)
-    if (args.debug) {
-      // If debug flag is present but no text, still show debug info
-      displayEnvironmentInfo(undefined, true);
+  try {
+    // Check if help or version flags are provided before Commander initialization
+    const args = process.argv.slice(2);
+    if (args.includes('--help') || args.includes('-h')) {
+      displayHelp();
       return;
     }
     
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout
-    });
-
-    rl.question('Please enter text: ', (answer) => {
-      displayEnvironmentInfo(answer, args.debug);
-      rl.close();
-    });
+    if (args.includes('--version') || args.includes('-v')) {
+      displayVersion();
+      return;
+    }
+    
+    const program = new Command();
+    
+    // Setup basic commander
+    program
+      .name('shellman')
+      .description('A tool to display shell and environment information');
+    
+    // Define command line options
+    program
+      .option('-d, --debug', 'Display debug information')
+      .option('-t, --text <text>', 'Text to display with environment info');
+    
+    // Parse arguments
+    program.parse(process.argv);
+    
+    // Get options after parsing
+    const options = program.opts();
+    console.log('Parsed options:', options);
+    
+    // Create a spinner
+    const spinner = ora('Starting shellman...').start();
+    
+    try {
+      // Gather information with spinner
+      const environmentInfo = await gatherEnvironmentInfo(spinner);
+      
+      if (options.text) {
+        // Case: Text provided as argument
+        spinner.succeed('Environment information gathered');
+        displayEnvironmentInfo(environmentInfo, options.text, options.debug);
+      } else {
+        // Case: No text provided, prompt for input
+        spinner.succeed('Environment information gathered');
+        
+        // Only prompt if we didn't get text from command line
+        const userInput = await promptForText();
+        displayEnvironmentInfo(environmentInfo, userInput, options.debug);
+      }
+    } catch (error) {
+      spinner.fail(`Error: ${error instanceof Error ? error.message : String(error)}`);
+      process.exit(1);
+    }
+  } catch (error) {
+    console.error('Error in CLI execution:', error);
+    process.exit(1);
   }
 }
 
-// Always run main when this module is loaded
-main();
+// Run the program if this file is executed directly
+if (import.meta.url === `file://${process.argv[1]}` || process.argv[1] === fileURLToPath(import.meta.url)) {
+  console.log('Running CLI from direct execution');
+  cli().catch(err => {
+    console.error('Unhandled error:', err);
+    process.exit(1);
+  });
+}

@@ -22,5 +22,11 @@
     "eslint": "^9.4.0",
     "eslint-plugin-format": "^0.1.1",
     "typescript": "^5.4.5"
+  },
+  "dependencies": {
+    "@types/prompts": "^2.4.9",
+    "commander": "^13.1.0",
+    "ora": "^8.2.0",
+    "prompts": "^2.4.2"
   }
 }
