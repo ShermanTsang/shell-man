@@ -5,7 +5,7 @@
   "main": ".output/dist/index.js",
   "types": ".output/dist/index.d.ts",
   "bin": {
-    "bin-name": "bin/index.js"
+    "shellman": "bin/index.js"
   },
   "description": "",
   "license": "ISC",
