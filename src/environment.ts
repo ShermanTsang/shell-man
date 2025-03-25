@@ -1,6 +1,7 @@
 import * as os from 'node:os'
 import * as path from 'node:path'
 import * as process from 'node:process'
+import { logger } from '@shermant/logger'
 import type ora from 'ora'
 import type { EnvironmentInfo, ShellInfo } from './types'
 
@@ -65,61 +66,44 @@ export function displayEnvironmentInfo(
   debug = false,
 ) {
   if (debug) {
-    console.log('\nEnvironment Information:')
-    console.log('=======================')
-    console.log(`OS Type: ${info.osType}`)
-    console.log(`OS Version: ${info.osVersion}`)
-    console.log(`Architecture: ${info.architecture}`)
-    console.log(`Shell Path: ${info.shellPath}`)
-    console.log(`Shell Name: ${info.shellName}`)
-
-    console.log('\nDebug Information:')
-    console.log('=======================')
+    logger.info.tag('\nEnvironment Information').data({
+      'OS Type': info.osType,
+      'OS Version': info.osVersion,
+      'Architecture': info.architecture,
+      'Shell Path': info.shellPath,
+      'Shell Name': info.shellName,
+    }).appendDivider().print()
 
     // Process information
-    console.log('\nProcess Information:')
-    console.log(`  Node Version: ${process.version}`)
-    console.log(`  Current Directory: ${process.cwd()}`)
-    console.log(`  Process ID: ${process.pid}`)
+    logger.info.tag('\nProcess Information').data({
+      'Node Version': process.version,
+      'Current Directory': process.cwd(),
+      'Process ID': process.pid,
+    }).appendDivider().print()
 
     // System information
-    console.log('\nSystem Information:')
-    console.log(`  Platform: ${process.platform}`)
-    console.log(`  CPU Cores: ${os.cpus().length}`)
-    console.log(
-            `  Total Memory: ${Math.round(os.totalmem() / (1024 * 1024))} MB`,
-    )
-    console.log(
-            `  Free Memory: ${Math.round(os.freemem() / (1024 * 1024))} MB`,
-    )
-    console.log(`  Uptime: ${Math.round(os.uptime() / 60)} minutes`)
-    console.log(`  Hostname: ${os.hostname()}`)
+    logger.info.tag('\nSystem Information').data({
+      'Platform': process.platform,
+      'CPU Cores': os.cpus().length,
+      'Total Memory': `${Math.round(os.totalmem() / (1024 * 1024))} MB`,
+      'Free Memory': `${Math.round(os.freemem() / (1024 * 1024))} MB`,
+      'Uptime': `${Math.round(os.uptime() / 60)} minutes`,
+      'Hostname': os.hostname(),
+    }).appendDivider().print()
 
     // Selected environment variables
-    console.log('\nSelected Environment Variables:')
-    const relevantEnvVars = [
-      {
-        key: 'PATH',
-        value:
-                    process.env.PATH?.substring(0, 50)
-                    + (process.env.PATH && process.env.PATH.length > 50 ? '...' : ''),
-      },
-      { key: 'NODE_ENV', value: process.env.NODE_ENV },
-      { key: 'HOME', value: process.env.HOME || process.env.USERPROFILE },
-      { key: 'SHELL', value: process.env.SHELL },
-      { key: 'LANG', value: process.env.LANG },
-      { key: 'TERM', value: process.env.TERM },
-      { key: 'USER', value: process.env.USER || process.env.USERNAME },
-    ]
-
-    for (const { key, value } of relevantEnvVars) {
-      if (value) {
-        console.log(`  ${key}: ${value}`)
-      }
-    }
+    logger.info.tag('\nSelected Environment Variables').data({
+      PATH: process.env.PATH?.substring(0, 50) + (process.env.PATH && process.env.PATH.length > 50 ? '...' : ''),
+      NODE_ENV: process.env.NODE_ENV,
+      HOME: process.env.HOME || process.env.USERPROFILE,
+      SHELL: process.env.SHELL,
+      LANG: process.env.LANG,
+      TERM: process.env.TERM,
+      USER: process.env.USER || process.env.USERNAME,
+    }).print()
   }
 
   if (text) {
-    console.log(text)
+    logger.info.tag('running mode').data(text).print()
   }
 }

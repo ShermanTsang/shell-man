@@ -1,6 +1,7 @@
 import * as process from 'node:process'
 import { Command } from 'commander'
 import ora from 'ora'
+import { logger } from '@shermant/logger'
 import { displayEnvironmentInfo, gatherEnvironmentInfo } from './environment'
 import { displayHelp, displayVersion, promptForText } from './ui'
 import { getPackageVersion } from './utils'
@@ -47,12 +48,12 @@ export async function cli() {
     // Get options after parsing
     const options = program.opts()
     if (isDebug)
-      console.log('Parsed options:', options)
+      logger.info.tag('Parsed options').data(options).print()
 
     // Handle positional arguments
     const positionalArgs = program.args
     if (isDebug)
-      console.log('Positional args:', positionalArgs)
+      logger.info.tag('Positional args').data(positionalArgs).print()
 
     // Get text from either -t flag or positional args
     let userText: string | undefined = options.text
@@ -71,17 +72,15 @@ export async function cli() {
         spinner.text = 'Loading configuration in non-interactive mode...'
         const config: ShellManConfig = await initConfig(true)
         if (isDebug)
-          console.log('Configuration loaded:', config)
+          logger.info.tag('Configuration loaded').data(config).message(`loaded from ${config.source}`).appendDivider().print()
       }
       else {
         // In interactive mode, completely stop the spinner and show a clear message
         spinner.stop()
-        console.log('Checking configuration...')
-
         // Initialize config in interactive mode
         const config: ShellManConfig = await initConfig(false)
         if (isDebug)
-          console.log('Configuration loaded:', config)
+          logger.info.tag('Configuration loaded').data(config).print()
 
         // Restart spinner after configuration is complete
         spinner.start('Continuing with shellman...')
@@ -122,7 +121,7 @@ export async function cli() {
     }
   }
   catch (error) {
-    console.error('Error in CLI execution:', error)
+    logger.error.tag('Error in CLI execution').data(error).print()
     process.exit(1)
   }
 }

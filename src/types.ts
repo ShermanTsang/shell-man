@@ -21,6 +21,7 @@ export interface ShellManConfig {
   API_MODEL: string
   API_CUSTOM_ENDPOINT?: string
   HISTORY_ENABLE: boolean
+  source?: string
 }
 
 // API Provider Constants
@@ -57,4 +58,5 @@ export const DEFAULT_CONFIG: ShellManConfig = {
   API_PROVIDER: 'openai',
   API_MODEL: 'gpt-3.5-turbo',
   HISTORY_ENABLE: true,
+  source: undefined,
 }

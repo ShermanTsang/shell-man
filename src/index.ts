@@ -1,6 +1,7 @@
 // Re-export types and functions from modular files
 import { fileURLToPath } from 'node:url'
 import * as process from 'node:process'
+import { logger } from '@shermant/logger'
 import { cli } from './cli'
 
 // Public API exports
@@ -16,9 +17,9 @@ if (
   const isDebug
     = process.argv.includes('--debug') || process.argv.includes('-d')
   if (isDebug)
-    console.log('Running CLI from direct execution')
+    logger.info.tag('Running CLI from direct execution').data('').print()
   cli().catch((err) => {
-    console.error('Unhandled error:', err)
+    logger.error.tag('Unhandled error').data(err).print()
     process.exit(1)
   })
 }

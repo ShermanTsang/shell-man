@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
 import prompts from 'prompts'
+import { logger } from '@shermant/logger'
 import type { ShellManConfig } from './types'
 import { API_PROVIDERS, DEFAULT_CONFIG, PROVIDER_MODELS } from './types'
 
@@ -41,16 +42,13 @@ export function ensureConfigDir(): void {
  * Read config from file
  */
 export function readConfig(): ShellManConfig | null {
+  const configPath = getConfigPath()
   try {
-    if (!configExists()) {
-      return null
-    }
-
-    const configData = fs.readFileSync(getConfigPath(), 'utf8')
+    const configData = fs.readFileSync(configPath, 'utf-8')
     return JSON.parse(configData) as ShellManConfig
   }
   catch (error) {
-    console.error('Error reading config:', error)
+    logger.error.tag('Config Read').data(error).message('Error reading configuration file').appendDivider().print()
     return null
   }
 }
@@ -59,13 +57,14 @@ export function readConfig(): ShellManConfig | null {
  * Write config to file
  */
 export function writeConfig(config: ShellManConfig): boolean {
+  ensureConfigDir()
+  const configPath = getConfigPath()
   try {
-    ensureConfigDir()
-    fs.writeFileSync(getConfigPath(), JSON.stringify(config, null, 2), 'utf8')
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8')
     return true
   }
   catch (error) {
-    console.error('Error writing config:', error)
+    logger.error.tag('Config Write').data(error).message('Error writing configuration file').appendDivider().print()
     return false
   }
 }
@@ -92,8 +91,8 @@ export function validateConfig(config: Partial<ShellManConfig>): string[] {
  * Prompt for API key
  */
 async function promptForApiKey(): Promise<string> {
-  console.log('\n=== Configuration Setup ===')
-  console.log('API Key is required for authentication')
+  logger.info.tag('Config Setup').data('').message('Configuration setup has started').appendDivider().print()
+  logger.info.tag('API Key').data('').message('API Key is required for authentication').appendDivider().print()
 
   try {
     const response = await prompts({
@@ -106,7 +105,7 @@ async function promptForApiKey(): Promise<string> {
     return response.apiKey || ''
   }
   catch (error) {
-    console.log('API key input was interrupted. Using empty value.')
+    logger.info.tag('API Key').data('').message('API key input was interrupted. Using empty value.').appendDivider().print()
     return ''
   }
 }
@@ -115,7 +114,7 @@ async function promptForApiKey(): Promise<string> {
  * Prompt for API provider
  */
 async function promptForApiProvider(): Promise<string> {
-  console.log('\nSelect an API provider from the list:')
+  logger.info.tag('API Provider').data('').message('Select an API provider from the list').appendDivider().print()
 
   try {
     const response = await prompts({
@@ -129,14 +128,14 @@ async function promptForApiProvider(): Promise<string> {
     })
 
     if (!response.provider) {
-      console.log('Provider selection was interrupted. Using default: openai')
+      logger.info.tag('API Provider').data('Using default: openai').message('Provider selection was interrupted').appendDivider().print()
       return 'openai'
     }
 
     return response.provider
   }
   catch (error) {
-    console.log('Provider selection was interrupted. Using default: openai')
+    logger.info.tag('API Provider').data('Using default: openai').message('Provider selection was interrupted').appendDivider().print()
     return 'openai'
   }
 }
@@ -146,7 +145,7 @@ async function promptForApiProvider(): Promise<string> {
  */
 async function promptForApiModel(provider: string): Promise<string> {
   const models = PROVIDER_MODELS[provider] || []
-  console.log(`\nSelect a model for ${provider}:`)
+  logger.info.tag('API Model').data(models).message(`Select a model for ${provider}`).appendDivider().print()
 
   const defaultModel = models[0] || ''
 
@@ -162,18 +161,14 @@ async function promptForApiModel(provider: string): Promise<string> {
     })
 
     if (!response.model) {
-      console.log(
-        `Model selection was interrupted. Using default: ${defaultModel}`,
-      )
+      logger.info.tag('API Model').data(`Using default: ${defaultModel}`).message('Model selection was interrupted').appendDivider().print()
       return defaultModel
     }
 
     return response.model
   }
   catch (error) {
-    console.log(
-      `Model selection was interrupted. Using default: ${defaultModel}`,
-    )
+    logger.info.tag('API Model').data(`Using default: ${defaultModel}`).message('Model selection was interrupted').appendDivider().print()
     return defaultModel
   }
 }
@@ -182,7 +177,7 @@ async function promptForApiModel(provider: string): Promise<string> {
  * Prompt for custom endpoint (optional)
  */
 async function promptForCustomEndpoint(): Promise<string | undefined> {
-  console.log('\nCustom API endpoint (optional):')
+  logger.info.tag('API Endpoint').data('').message('Custom API endpoint (optional)').appendDivider().print()
 
   try {
     const response = await prompts({
@@ -194,7 +189,7 @@ async function promptForCustomEndpoint(): Promise<string | undefined> {
     return response.endpoint || undefined
   }
   catch (error) {
-    console.log('Custom endpoint input was interrupted.')
+    logger.info.tag('API Endpoint').data('').message('Custom endpoint input was interrupted').appendDivider().print()
     return undefined
   }
 }
@@ -203,73 +198,75 @@ async function promptForCustomEndpoint(): Promise<string | undefined> {
  * Prompt for history enable
  */
 async function promptForHistoryEnable(): Promise<boolean> {
-  console.log('\nEnable command history?')
+  logger.info.tag('History').data('').message('Enable command history?').appendDivider().print()
 
   try {
     const response = await prompts({
       type: 'confirm',
       name: 'historyEnable',
-      message: 'Enable command history?',
+      message: 'Enable command history? (recommended)',
       initial: true,
     })
 
     if (response.historyEnable === undefined) {
-      console.log(
-        'History enable selection was interrupted. Using default: true',
-      )
+      logger.info.tag('History').data('Using default: true').message('History enable selection was interrupted').appendDivider().print()
       return true
     }
 
     return response.historyEnable
   }
   catch (error) {
-    console.log(
-      'History enable selection was interrupted. Using default: true',
-    )
+    logger.info.tag('History').data('Using default: true').message('History enable selection was interrupted').appendDivider().print()
     return true
   }
 }
 
 /**
- * Prompt for all missing config options
+ * Prompt for missing configuration options
  */
 export async function promptForMissingConfig(
   partialConfig: Partial<ShellManConfig> = {},
 ): Promise<ShellManConfig> {
-  console.log('\nSetting up shell-man configuration...')
-  console.log('Please provide the following information:')
+  logger.info.tag('Config').data('').message('Setting up shell-man configuration').appendDivider().print()
+  logger.info.tag('Config').data('').message('Please provide the following information').appendDivider().print()
 
   const config = { ...DEFAULT_CONFIG, ...partialConfig }
 
   try {
-    // Always prompt for API key if it's missing
+    // Skip API key if already provided
     if (!config.API_KEY) {
+      // Prompt for API key
       config.API_KEY = await promptForApiKey()
     }
 
-    // Prompt for API provider if it's missing
+    // Skip provider if already provided
     if (!config.API_PROVIDER) {
+      // Prompt for API provider
       config.API_PROVIDER = await promptForApiProvider()
     }
 
-    // Prompt for API model based on provider
-    config.API_MODEL = await promptForApiModel(config.API_PROVIDER)
-
-    // Prompt for custom endpoint (optional)
-    const customEndpoint = await promptForCustomEndpoint()
-    if (customEndpoint) {
-      config.API_CUSTOM_ENDPOINT = customEndpoint
+    // Skip model if already provided for the current provider
+    const availableModels = PROVIDER_MODELS[config.API_PROVIDER] || []
+    if (
+      !config.API_MODEL
+      || !availableModels.includes(config.API_MODEL)
+    ) {
+      // Prompt for model based on provider
+      config.API_MODEL = await promptForApiModel(config.API_PROVIDER)
     }
+
+    // Prompt for custom endpoint if needed
+    config.API_CUSTOM_ENDPOINT = await promptForCustomEndpoint()
 
     // Prompt for history enable
     config.HISTORY_ENABLE = await promptForHistoryEnable()
 
-    console.log('\nConfiguration complete!')
+    logger.info.tag('Config').data('').message('Configuration complete!').appendDivider().print()
     return config as ShellManConfig
   }
   catch (error) {
-    console.error('\nAn error occurred during configuration setup:', error)
-    console.log('Using default values for remaining fields...')
+    logger.error.tag('Config Error').data(error).message('An error occurred during configuration setup').appendDivider().print()
+    logger.info.tag('Config').data('').message('Using default values for remaining fields').appendDivider().print()
     return config as ShellManConfig
   }
 }
@@ -284,90 +281,107 @@ export async function initConfig(
   nonInteractive = false,
 ): Promise<ShellManConfig> {
   try {
-    // First check if config directory exists
+    // Ensure config directory exists
     ensureConfigDir()
 
-    // Then check if config file exists
-    let config = readConfig()
+    // Check if config exists
+    if (!configExists()) {
+      // No config exists, create a new one
+      let config: ShellManConfig
 
-    if (!config) {
       if (nonInteractive) {
-        // In non-interactive mode, use defaults
-        config = { ...DEFAULT_CONFIG }
+        // In non-interactive mode, use default config values
+        config = { ...DEFAULT_CONFIG, source: 'defaults' }
         const success = writeConfig(config)
         if (success) {
-          console.log(`Default configuration saved to ${getConfigPath()}`)
+          logger.info.tag('Config').data(config).message(`Default configuration saved to ${getConfigPath()}`).appendDivider().print()
         }
         else {
-          console.error(`Failed to write configuration to ${getConfigPath()}`)
+          logger.error.tag('Config Error').data('').message(`Failed to write configuration to ${getConfigPath()}`).appendDivider().print()
         }
       }
       else {
-        // In interactive mode, prompt for config
+        // In interactive mode, prompt for config values
         try {
           config = await promptForMissingConfig()
+          config.source = 'user input'
           const success = writeConfig(config)
           if (success) {
-            console.log(`Configuration saved to ${getConfigPath()}`)
+            logger.info.tag('Config').data(config).message(`Configuration saved to ${getConfigPath()}`).appendDivider().print()
           }
           else {
-            console.error(
-              `Failed to write configuration to ${getConfigPath()}`,
-            )
+            logger.error.tag('Config Error').data('').message(`Failed to write configuration to ${getConfigPath()}`).appendDivider().print()
           }
         }
         catch (error) {
-          console.error('Error during prompting:', error)
+          logger.error.tag('Config Error').data(error).message('Error during prompting').appendDivider().print()
           // Fall back to defaults if prompting fails
-          config = { ...DEFAULT_CONFIG }
+          config = { ...DEFAULT_CONFIG, source: 'defaults (fallback)' }
           writeConfig(config)
         }
       }
+
+      return config
     }
     else {
-      // Check for missing required fields
-      const missingFields = validateConfig(config)
+      // Config exists, read it
+      const existingConfig = readConfig()
+      let config: ShellManConfig
 
-      if (missingFields.length > 0) {
-        if (nonInteractive) {
-          // Fill missing fields with defaults
+      if (existingConfig) {
+        // Check if config is valid and has all required fields
+        const missingFields = validateConfig(existingConfig)
+
+        if (nonInteractive && missingFields.length > 0) {
+          // In non-interactive mode with missing fields, fill in defaults
+          config = { ...existingConfig, source: 'existing with default additions' }
           for (const field of missingFields) {
             (config as any)[field] = (DEFAULT_CONFIG as any)[field]
           }
           const success = writeConfig(config)
           if (success) {
-            console.log(
-              `Configuration updated with defaults in ${getConfigPath()}`,
-            )
+            logger.info.tag('Config').data({ path: getConfigPath(), missingFields }).message(`Configuration updated with defaults`).appendDivider().print()
           }
         }
         else {
-          // In interactive mode, prompt for missing fields
-          try {
-            console.log('Some required configuration options are missing.')
-            config = await promptForMissingConfig(config)
-            const success = writeConfig(config)
-            if (success) {
-              console.log(`Configuration updated in ${getConfigPath()}`)
+          // In interactive mode with missing fields, prompt for missing values
+          if (missingFields.length > 0 && !nonInteractive) {
+            try {
+              logger.info.tag('Config').data(missingFields).message('Some required configuration options are missing').appendDivider().print()
+              config = await promptForMissingConfig(existingConfig)
+              config.source = 'existing with user updates'
+              const success = writeConfig(config)
+              if (success) {
+                logger.info.tag('Config').data({ path: getConfigPath(), config }).message(`Configuration updated`).appendDivider().print()
+              }
+            }
+            catch (error) {
+              logger.error.tag('Config Error').data(error).message('Error during prompting').appendDivider().print()
+              // Fall back to defaults for missing fields
+              config = { ...existingConfig, source: 'existing with default additions (fallback)' }
+              for (const field of missingFields) {
+                (config as any)[field] = (DEFAULT_CONFIG as any)[field]
+              }
             }
           }
-          catch (error) {
-            console.error('Error during prompting:', error)
-            // Fall back to defaults for missing fields
-            for (const field of missingFields) {
-              (config as any)[field] = (DEFAULT_CONFIG as any)[field]
-            }
-            writeConfig(config)
+          else {
+            // Config is valid, use it
+            config = { ...existingConfig, source: 'existing (valid)' }
           }
         }
       }
-    }
+      else {
+        // Failed to read config, create a new one with defaults
+        config = { ...DEFAULT_CONFIG, source: 'defaults (read error)' }
+        writeConfig(config)
+      }
 
-    return config
+      return config
+    }
   }
   catch (error) {
-    console.error('Error initializing configuration:', error)
+    logger.error.tag('Config Error').data(error).message('Error initializing configuration').appendDivider().print()
     // Return default config as a fallback
-    return { ...DEFAULT_CONFIG }
+    return { ...DEFAULT_CONFIG, source: 'defaults (error fallback)' }
   }
 }
