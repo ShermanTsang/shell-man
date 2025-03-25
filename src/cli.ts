@@ -1,46 +1,61 @@
 import * as process from 'node:process'
 import { Command } from 'commander'
 import ora from 'ora'
+import prompts from 'prompts'
 import { logger } from '@shermant/logger'
 import { displayEnvironmentInfo, gatherEnvironmentInfo } from './environment'
-import { displayHelp, displayVersion, promptForText } from './ui'
 import { getPackageVersion } from './utils'
 import { initConfig } from './config'
 import type { ShellManConfig } from './types'
 
+// Helper function to prompt the user for text input
+async function promptForText(): Promise<string> {
+  const response = await prompts({
+    type: 'text',
+    name: 'input',
+    message: 'Please enter your script:',
+    validate: value =>
+      value.length > 0
+        ? true
+        : 'Please enter your script use natural human language',
+  })
+
+  return response.input
+}
+
 // Main function, exported as cli for bin script use
 export async function cli() {
   try {
-    // Check if help or version flags are provided before Commander initialization
     const args = process.argv.slice(2)
     const isDebug = args.includes('--debug') || args.includes('-d')
     const nonInteractive = isDebug || args.includes('--non-interactive')
 
-    if (args.includes('--help') || args.includes('-h')) {
-      displayHelp()
-      return
-    }
-
-    if (args.includes('--version') || args.includes('-v')) {
-      displayVersion(getPackageVersion())
-      return
-    }
-
     const program = new Command()
 
-    // Setup basic commander
+    // Setup basic commander with proper descriptions
     program
       .name('shellman')
       .description('A tool to display shell and environment information')
+      .version(getPackageVersion(), '-v, --version', 'Display the version of shellman')
+      .helpOption('-h, --help', 'Display help information')
       .allowExcessArguments(true) // Allow excess arguments without error
 
-    // Define command line options
+    // Define command line options with detailed descriptions
     program
       .option('-d, --debug', 'Display debug information')
       .option('-t, --text <text>', 'Text to display with environment info')
       .option('--non-interactive', 'Run in non-interactive mode')
       // Add a dummy variadic argument to capture all other arguments
       .argument('[text...]', 'Text to display with environment info')
+
+    // Add examples to help text using the .addHelpText method
+    program.addHelpText('after', `
+Examples:
+  shellman                     Interactive mode, prompts for text input
+  shellman -t "Hello World"    Displays environment info with 'Hello World' as input
+  shellman -v                  Displays the program version
+  shellman -d                  Displays environment and debug info
+`)
 
     // Parse arguments
     program.parse(process.argv)
