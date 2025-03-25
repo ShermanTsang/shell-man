@@ -1,20 +1,27 @@
 {
-  "name": "@shermant/boilerplate-bun",
+  "name": "@shermant/shell-man",
+  "type": "module",
   "version": "1.0.0",
+  "description": "",
   "author": "ShermanT",
+  "license": "ISC",
   "main": ".output/dist/index.js",
   "types": ".output/dist/index.d.ts",
   "bin": {
     "shellman": "bin/index.js"
   },
-  "description": "",
-  "license": "ISC",
   "scripts": {
     "start": "bun run src/index.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint src/**/*.ts --fix",
     "build": "bun build ./src/index.ts --outdir ./.output/dist --target node && tsc"
   },
-  "type": "module",
+  "dependencies": {
+    "@types/prompts": "^2.4.9",
+    "commander": "^13.1.0",
+    "ora": "^8.2.0",
+    "prompts": "^2.4.2"
+  },
   "devDependencies": {
     "@antfu/eslint-config": "^2.20.0",
     "@types/bun": "^1.1.4",
@@ -22,11 +29,5 @@
     "eslint": "^9.4.0",
     "eslint-plugin-format": "^0.1.1",
     "typescript": "^5.4.5"
-  },
-  "dependencies": {
-    "@types/prompts": "^2.4.9",
-    "commander": "^13.1.0",
-    "ora": "^8.2.0",
-    "prompts": "^2.4.2"
   }
 }
